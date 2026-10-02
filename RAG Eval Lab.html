@@ -1,0 +1,374 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>RAG Eval Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a lab notebook on graph paper — one narrow reading column, wide figures break out to full width */
+:root{
+  --bg:#f3f5f7; --paper:#ffffff; --ink:#15202b; --muted:#56636f; --line:#d5dce3; --grid:rgba(40,80,120,.06);
+  --accent:#1f5fd1; --accent-soft:#e3ecfb; --judge:#b8620a; --judge-soft:#fbeedd;
+  --good:#1d7a4a; --good-soft:#e1f2e8; --bad:#b3322b; --bad-soft:#f8e3e1;
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1418; --paper:#161d23; --ink:#e4e9ee; --muted:#9aa7b3; --line:#2a343d; --grid:rgba(140,180,220,.05);
+  --accent:#6d9cf0; --accent-soft:#1b2a42; --judge:#e39a4c; --judge-soft:#33240f;
+  --good:#5cc08a; --good-soft:#15301f; --bad:#ec7b72; --bad-soft:#3a1a18; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1418; --paper:#161d23; --ink:#e4e9ee; --muted:#9aa7b3; --line:#2a343d; --grid:rgba(140,180,220,.05);
+  --accent:#6d9cf0; --accent-soft:#1b2a42; --judge:#e39a4c; --judge-soft:#33240f;
+  --good:#5cc08a; --good-soft:#15301f; --bad:#ec7b72; --bad-soft:#3a1a18; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:17px/1.6 var(--f-body);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px;}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:20px;padding-block:28px 80px;display:flex;flex-direction:column;gap:72px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.1}
+h2{font-size:clamp(26px,3.4vw,36px);font-weight:800;letter-spacing:-.01em}
+h3{font-size:19px;font-weight:700}
+p{margin:0;max-width:66ch}
+.eyebrow{font:600 12px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.lede{color:var(--muted);font-size:18px}
+section{display:flex;flex-direction:column;gap:20px}
+.head{display:flex;flex-direction:column;gap:10px}
+code,.mono{font-family:var(--f-mono);font-size:.86em}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:10px}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.3fr 1fr;gap:36px;align-items:center;padding-top:12px}
+.hero h1{font-size:clamp(36px,5.6vw,62px);font-weight:800;letter-spacing:-.025em}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.hero .copy{display:flex;flex-direction:column;gap:18px;min-width:0}
+.question{border-left:3px solid var(--judge);padding:4px 0 4px 16px;font-size:19px}
+.meta{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:600 12px/1 var(--f-mono);padding:7px 10px;border-radius:999px;border:1px solid var(--line);background:var(--paper);color:var(--muted)}
+/* hero instrument: a recall gauge sweeping across configs */
+.gauge{padding:20px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.gauge .lbl{font:600 11px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.bars{display:grid;grid-template-columns:auto 1fr auto;gap:8px 10px;align-items:center;font:12px var(--f-mono)}
+.bars .t{height:10px;background:var(--accent-soft);border-radius:3px;overflow:hidden}
+.bars .f{height:100%;background:var(--accent);border-radius:3px;transform-origin:left;animation:grow 1.4s cubic-bezier(.2,.8,.2,1) both}
+.bars .win .f{background:var(--good)}
+.bars .v{font-variant-numeric:tabular-nums;color:var(--muted)}
+.note{font-size:13px;color:var(--muted)}
+@keyframes grow{from{transform:scaleX(.05)}to{transform:scaleX(1)}}
+
+/* finish line */
+.deliv{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.deliv .panel{padding:18px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.deliv .k{font:600 11px/1 var(--f-mono);letter-spacing:.1em;color:var(--accent);text-transform:uppercase}
+.deliv p{font-size:15px;color:var(--muted)}
+.headline{padding:22px;background:var(--accent-soft);border:1px dashed var(--accent);border-radius:10px;font-size:19px;line-height:1.7}
+.blank{display:inline-block;min-width:64px;border-bottom:2px solid var(--accent);text-align:center;font:600 15px var(--f-mono);color:var(--accent);padding:0 6px}
+.tables{overflow-x:auto}
+.tables table{border-collapse:collapse;width:100%;min-width:620px;font-size:14px}
+.tables th,.tables td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.tables th{font:600 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tables td:first-child{font-family:var(--f-mono);font-size:13px;white-space:nowrap}
+.layer{font:600 11px var(--f-mono);padding:3px 7px;border-radius:4px}
+.l-b{background:var(--judge-soft);color:var(--judge)}.l-s{background:var(--accent-soft);color:var(--accent)}.l-g{background:var(--good-soft);color:var(--good)}
+
+/* pipeline */
+.pipe{padding:24px;display:flex;flex-direction:column;gap:18px;overflow:hidden}
+.stage{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:start}
+.stage .tag{font:700 12px/1.3 var(--f-mono);color:var(--muted);padding-top:12px}
+.stage .tag b{display:block;color:var(--ink);font-size:15px;font-family:var(--f-display)}
+.row{display:flex;gap:10px;align-items:stretch;position:relative;min-width:0;flex-wrap:wrap}
+.node{flex:1 1 150px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--bg);font-size:14px;min-width:0;position:relative}
+.node b{display:block;font-family:var(--f-display);font-size:15px}
+.node span{color:var(--muted);font-size:13px}
+.node.judge{border-color:var(--judge);background:var(--judge-soft)}
+.node.win{border-color:var(--good);background:var(--good-soft)}
+.node.lit{animation:lit 9s infinite}
+@keyframes lit{0%,100%{box-shadow:none}4%,10%{box-shadow:0 0 0 3px var(--accent)}}
+.flowline{height:2px;background:var(--line);position:relative;margin-left:166px;border-radius:2px}
+.flowline i{position:absolute;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--accent);animation:travel 3s linear infinite}
+.flowline i:nth-child(2){animation-delay:1s}.flowline i:nth-child(3){animation-delay:2s}
+@keyframes travel{from{left:0}to{left:calc(100% - 10px)}}
+.funnel{font:600 12px var(--f-mono);color:var(--muted);margin-left:166px}
+.funnel b{color:var(--accent)}
+
+/* diagnosis */
+.diag{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.dcard{padding:18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.dcard .q{font:600 13px var(--f-mono);color:var(--muted)}
+.verdict{font:700 13px var(--f-mono);padding:5px 9px;border-radius:5px;align-self:flex-start}
+.v-r{background:var(--bad-soft);color:var(--bad)}.v-g{background:var(--judge-soft);color:var(--judge)}.v-e{background:var(--accent-soft);color:var(--accent)}
+.dcard p{font-size:15px;color:var(--muted)}
+
+/* criteria checklist */
+.checks{padding:8px 18px;display:flex;flex-direction:column}
+.check{display:grid;grid-template-columns:28px 1fr auto;gap:12px;align-items:start;padding:12px 0;border-bottom:1px solid var(--line)}
+.check:last-child{border-bottom:0}
+.check input{width:20px;height:20px;margin:3px 0 0;accent-color:var(--good)}
+.check label{cursor:pointer;min-width:0}
+.check .how{display:block;font-size:14px;color:var(--muted)}
+.check .day{font:600 11px var(--f-mono);color:var(--muted);white-space:nowrap;padding-top:4px}
+.check input:checked+label b{text-decoration:line-through;color:var(--muted)}
+.progress{display:flex;align-items:center;gap:12px;font:600 13px var(--f-mono);color:var(--muted)}
+.progress .t{flex:1;height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+.progress .f{height:100%;width:0;background:var(--good);transition:width .4s}
+
+/* tradeoffs */
+.trade{display:flex;flex-direction:column;gap:10px}
+.tr{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--paper)}
+.tr>div{padding:13px 15px;font-size:15px;min-width:0}
+.tr .d{font-weight:700;font-family:var(--f-display)}
+.tr .gain{background:var(--good-soft)}.tr .cost{background:var(--bad-soft)}
+.tr .gain::before,.tr .cost::before{display:block;font:600 10px var(--f-mono);letter-spacing:.1em;margin-bottom:3px}
+.tr .gain::before{content:"WE GAIN";color:var(--good)}.tr .cost::before{content:"IT COSTS";color:var(--bad)}
+.limits{display:flex;flex-wrap:wrap;gap:8px}
+
+/* AI vs you */
+.split{padding:20px;display:flex;flex-direction:column;gap:14px}
+.sp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:14px;align-items:center}
+.sp .name{font-size:15px;font-weight:600}
+.sp .name small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.sbar{display:flex;height:26px;border-radius:5px;overflow:hidden;font:600 11px var(--f-mono)}
+.sbar .ai{background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;padding-left:8px;white-space:nowrap;overflow:hidden}
+.sbar .me{background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:flex-end;padding-right:8px;white-space:nowrap;overflow:hidden;flex:1}
+.rule{padding:18px 20px;border-radius:10px;background:var(--ink);color:var(--paper);font-size:18px;font-weight:600}
+.rule span{display:block;font:600 11px var(--f-mono);letter-spacing:.12em;opacity:.7;margin-bottom:6px}
+.musts{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.musts .panel{padding:16px;font-size:15px;min-width:0}
+.musts b{display:block;font-family:var(--f-display);margin-bottom:4px}
+
+/* days */
+.days{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.dayc{padding:16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.dayc .when{font:700 12px var(--f-mono);color:var(--accent);letter-spacing:.08em}
+.dayc ul{margin:0;padding-left:18px;font-size:14px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.dayc .out{margin-top:auto;font-size:13px;border-top:1px solid var(--line);padding-top:8px}
+.dayc .out b{color:var(--good)}
+
+/* method + career */
+.method{counter-reset:m;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.method .panel{padding:18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.method .panel::before{counter-increment:m;content:counter(m);font:800 28px var(--f-display);color:var(--accent);line-height:1}
+.method p,.career p{font-size:15px;color:var(--muted)}
+.method .here{font-size:13px;font-family:var(--f-mono);color:var(--ink);background:var(--bg);padding:6px 8px;border-radius:5px}
+.career{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.career .panel{padding:20px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.career ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:15px}
+.career li b{font-weight:700}
+.yes h3{color:var(--good)}.no h3{color:var(--bad)}
+.lessons{display:flex;flex-direction:column;gap:0}
+.lesson{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:20px;padding:16px 0;border-top:1px solid var(--line)}
+.lesson b{font-family:var(--f-display);font-size:17px}
+.lesson p{font-size:15px;color:var(--muted)}
+footer{font-size:14px;color:var(--muted);border-top:1px solid var(--line);padding-top:18px}
+
+@media (max-width:760px){
+  .hero,.career,.lesson,.sp{grid-template-columns:1fr}
+  .diag{grid-template-columns:1fr}
+  .days{grid-template-columns:1fr 1fr}
+  .stage{grid-template-columns:1fr;gap:8px}.stage .tag{padding-top:0}
+  .flowline,.funnel{margin-left:0}
+  .tr{grid-template-columns:1fr}
+}
+@media (max-width:460px){.days{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="copy">
+    <span class="eyebrow">3-day build · Databricks · MLflow 3</span>
+    <h1>RAG Eval Lab: measure first, <em>then</em> optimize.</h1>
+    <p class="question">Which RAG setup works best, and can we trust the judge that says so?</p>
+    <p class="lede">Not another chatbot. A benchmark-driven framework that tests one setting at a time, scores every run against known answers, and checks two AI judges against ground truth.</p>
+    <div class="meta"><span class="chip">HotpotQA · distractor</span><span class="chip">Delta Lake</span><span class="chip">MLflow tracing</span><span class="chip">LLM judge vs Jev</span></div>
+  </div>
+  <div class="panel gauge" aria-label="Illustration of retrieval recall across example configurations">
+    <span class="lbl">Recall@5 by config · illustration</span>
+    <div class="bars">
+      <span>cfg_s1_k3</span><div class="t"><div class="f" style="width:52%"></div></div><span class="v">0.52</span>
+      <span>cfg_s2_k3</span><div class="t"><div class="f" style="width:61%;animation-delay:.15s"></div></div><span class="v">0.61</span>
+      <span>cfg_p_k5</span><div class="t"><div class="f" style="width:58%;animation-delay:.3s"></div></div><span class="v">0.58</span>
+      <span class="win">cfg_s3_k5</span><div class="t win"><div class="f" style="width:74%;animation-delay:.45s"></div></div><span class="v">0.74</span>
+      <span>baseline</span><div class="t"><div class="f" style="width:48%;animation-delay:.6s"></div></div><span class="v">0.48</span>
+    </div>
+    <span class="note">Placeholder numbers. Your real ones replace these on Day 1.</span>
+  </div>
+</header>
+
+<section>
+  <div class="head"><span class="eyebrow">The finish line</span><h2>What exists at the end of Day 3</h2>
+  <p class="lede">If the notebooks run but nothing is published, almost none of the career value lands. These five things are the deliverable.</p></div>
+  <div class="deliv">
+    <div class="panel"><span class="k">1 · Repo</span><h3>GitHub repo</h3><p>Notebooks driven by one config table. Anyone can rerun it end to end.</p></div>
+    <div class="panel"><span class="k">2 · Data</span><h3>Delta tables</h3><p>Raw data to chunks to results to metrics. Every experiment is queryable with SQL.</p></div>
+    <div class="panel"><span class="k">3 · Observability</span><h3>MLflow experiment</h3><p>One run per config, with traces, latency, tokens and judge scores.</p></div>
+    <div class="panel"><span class="k">4 · Findings</span><h3>Results write-up</h3><p>Best config, failure attribution, judge agreement and cost.</p></div>
+    <div class="panel"><span class="k">5 · Reach</span><h3>LinkedIn post</h3><p>Your words, linking the repo and the write-up.</p></div>
+  </div>
+  <div class="headline">The one sentence the project must earn:<br>
+    Config <span class="blank">____</span> beat the baseline by <span class="blank">____</span> Recall@5 and <span class="blank">____</span> answer F1. Jev agreed with ground truth <span class="blank">___%</span> of the time at <span class="blank">$____</span> per 1,000 judgments, versus <span class="blank">___%</span> for the LLM judge.</div>
+  <div class="panel tables">
+    <table>
+      <thead><tr><th>Table</th><th>Layer</th><th>Holds</th></tr></thead>
+      <tbody>
+        <tr><td>bronze_hotpot_raw</td><td><span class="layer l-b">bronze</span></td><td>HotpotQA records as downloaded</td></tr>
+        <tr><td>silver_paragraphs</td><td><span class="layer l-s">silver</span></td><td>Deduplicated Wikipedia paragraphs, split into sentences</td></tr>
+        <tr><td>silver_eval_questions</td><td><span class="layer l-s">silver</span></td><td>Question, gold answer, supporting paragraphs and sentences</td></tr>
+        <tr><td>exp_configs</td><td><span class="layer l-s">silver</span></td><td>One row per config: chunk size, overlap, Top-K, retrieval strategy</td></tr>
+        <tr><td>silver_chunks</td><td><span class="layer l-s">silver</span></td><td>Chunks and embeddings, keyed by chunking config</td></tr>
+        <tr><td>exp_retrievals</td><td><span class="layer l-g">gold</span></td><td>Ranked chunks returned per question and config</td></tr>
+        <tr><td>exp_generations</td><td><span class="layer l-g">gold</span></td><td>Answers with trace id, latency and tokens</td></tr>
+        <tr><td>exp_judgments</td><td><span class="layer l-g">gold</span></td><td>Score per question, config and judge, with cost</td></tr>
+        <tr><td>exp_metrics</td><td><span class="layer l-g">gold</span></td><td>Recall@K, NDCG, MRR, EM, F1, agreement rates per config</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">A starting point for your schema session. The final design is yours.</p>
+</section>
+
+<section>
+  <div class="head"><span class="eyebrow">The design</span><h2>A cheap filter before the expensive part</h2>
+  <p class="lede">Retrieval can be scored with no LLM calls, so every config gets tested there first. Only the best few pay for generation and judging.</p></div>
+  <div class="panel pipe">
+    <div class="stage"><div class="tag">STAGE 0<b>Data prep</b></div>
+      <div class="row"><div class="node lit" style="animation-delay:0s"><b>HotpotQA</b><span>~300 questions, ~10 paragraphs each</span></div><div class="node lit" style="animation-delay:.6s"><b>Delta</b><span>bronze → silver</span></div><div class="node lit" style="animation-delay:1.2s"><b>Eval set</b><span>answers + supporting facts</span></div></div></div>
+    <div class="flowline" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="stage"><div class="tag">STAGE 1<b>Retrieval grid</b></div>
+      <div class="row"><div class="node lit" style="animation-delay:2.2s"><b>~36 configs</b><span>chunk · overlap · Top-K · strategy</span></div><div class="node lit" style="animation-delay:2.8s"><b>Embed + retrieve</b><span>in notebook</span></div><div class="node lit" style="animation-delay:3.4s"><b>Recall@K · NDCG · MRR</b><span>zero LLM cost</span></div></div></div>
+    <p class="funnel">36 configs → <b>top 3–4 + baseline</b></p>
+    <div class="flowline" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="stage"><div class="tag">STAGE 2<b>Generate + judge</b></div>
+      <div class="row"><div class="node lit" style="animation-delay:4.6s"><b>Generate</b><span>MLflow traces, tokens, latency</span></div><div class="node lit" style="animation-delay:5.2s"><b>Ground truth</b><span>exact match, F1</span></div><div class="node judge lit" style="animation-delay:5.8s"><b>LLM judge</b><span>rationale, slower</span></div><div class="node judge lit" style="animation-delay:6.4s"><b>Jev</b><span>probabilities, cheap</span></div></div></div>
+    <div class="flowline" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="stage"><div class="tag">STAGE 3<b>Analysis</b></div>
+      <div class="row"><div class="node lit" style="animation-delay:7.4s"><b>SQL on Delta</b><span>compare configs and judges</span></div><div class="node win lit" style="animation-delay:8s"><b>Optimized RAG</b><span>best config + why it fails</span></div></div></div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><span class="eyebrow">The core idea</span><h2>Where does a bad answer come from?</h2>
+  <p class="lede">Every wrong result gets traced to one of three causes. This is what separates an evaluation framework from a demo.</p></div>
+  <div class="diag">
+    <div class="panel dcard"><span class="q">Did retrieval return the supporting paragraphs?</span><span class="verdict v-r">No → retrieval problem</span><p>Fix chunking, Top-K or the embedding strategy. Stage 1 metrics show this directly.</p></div>
+    <div class="panel dcard"><span class="q">Context was right, but the answer fails ground truth?</span><span class="verdict v-g">Yes → generation problem</span><p>The model had the facts and still missed. Fix the prompt or the model, not the retriever.</p></div>
+    <div class="panel dcard"><span class="q">Ground truth and the judge disagree?</span><span class="verdict v-e">→ evaluation problem</span><p>The measuring tool is wrong. You read these cases yourself; that is where the insight is.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><span class="eyebrow">Success criteria</span><h2>Done means all seven are true</h2>
+  <p class="lede">Tick them off as you go. Your ticks stay in this browser only.</p></div>
+  <div class="progress"><span id="pct">0 / 7</span><div class="t"><div class="f" id="bar"></div></div></div>
+  <div class="panel checks" id="checks">
+    <div class="check"><input type="checkbox" id="c1"><label for="c1"><b>Clean HotpotQA subsample in Delta</b><span class="how">~300 questions with answers and supporting-fact labels; row counts verified</span></label><span class="day">DAY 1</span></div>
+    <div class="check"><input type="checkbox" id="c2"><label for="c2"><b>Retrieval grid scored</b><span class="how">~36 configs with Recall@K, NDCG, MRR in one metrics table</span></label><span class="day">DAY 1</span></div>
+    <div class="check"><input type="checkbox" id="c3"><label for="c3"><b>Shortlist run end to end with traces</b><span class="how">3–4 configs plus baseline, each an MLflow run with latency and tokens</span></label><span class="day">DAY 2</span></div>
+    <div class="check"><input type="checkbox" id="c4"><label for="c4"><b>Three evaluators scored every answer</b><span class="how">Ground truth, LLM judge and Jev, in one judgments table</span></label><span class="day">DAY 2–3</span></div>
+    <div class="check"><input type="checkbox" id="c5"><label for="c5"><b>Judge agreement and cost reported</b><span class="how">Agreement rate, disagreement examples you read, cost per 1,000</span></label><span class="day">DAY 3</span></div>
+    <div class="check"><input type="checkbox" id="c6"><label for="c6"><b>Best config named, failures attributed</b><span class="how">Retrieval vs generation vs evaluation, backed by SQL</span></label><span class="day">DAY 3</span></div>
+    <div class="check"><input type="checkbox" id="c7"><label for="c7"><b>Published</b><span class="how">Repo, write-up and LinkedIn post are live</span></label><span class="day">DAY 3</span></div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><span class="eyebrow">Trade-offs</span><h2>What we chose, and what it costs</h2>
+  <p class="lede">We trade breadth for a result we can finish, explain and trust in three days.</p></div>
+  <div class="trade">
+    <div class="tr"><div class="d">HotpotQA original, not BEIR or SciFact</div><div class="gain">Gold answers and supporting sentences, multi-hop questions</div><div class="cost">Short paragraphs, so chunking is in sentences, not tokens</div></div>
+    <div class="tr"><div class="d">Two-stage experiment</div><div class="gain">Full grid with zero LLM spend</div><div class="cost">A config weak at retrieval but strong at generation can be missed</div></div>
+    <div class="tr"><div class="d">One variable at a time</div><div class="gain">Clean cause and effect</div><div class="cost">No interaction effects; stated in the write-up</div></div>
+    <div class="tr"><div class="d">~300 questions</div><div class="gain">Fits rate limits and the time box</div><div class="cost">Small gaps are noise; close configs are reported as ties</div></div>
+    <div class="tr"><div class="d">In-notebook retrieval, Vector Search once</div><div class="gain">Many configs, full control</div><div class="cost">Less like production; the single Vector Search run is the bridge</div></div>
+    <div class="tr"><div class="d">Jev as second judge</div><div class="gain">Cheap, fast, calibrated probabilities</div><div class="cost">No rationale; weaker on reasoning-heavy checks</div></div>
+  </div>
+  <h3>Limits we design around</h3>
+  <div class="limits"><span class="chip">Time-limited workspace → commit to Git every session</span><span class="chip">Foundation model rate limits</span><span class="chip">Jev needs network access + API key</span><span class="chip">3 days, no extensions</span><span class="chip">Public data only, never ADP work</span></div>
+</section>
+
+<section>
+  <div class="head"><span class="eyebrow">Division of labour</span><h2>Where AI works, where you think</h2></div>
+  <div class="rule"><span>THE RULE</span>Every line in the repo is something you can explain in an interview without notes. If you can't, it doesn't ship.</div>
+  <div class="panel split">
+    <div class="sp"><div class="name">Loading, chunking, embedding code<small>You read and run every cell</small></div><div class="sbar"><div class="ai" style="width:75%">AI drafts</div><div class="me">you</div></div></div>
+    <div class="sp"><div class="name">MLflow tracing and judge wiring<small>You debug what breaks</small></div><div class="sbar"><div class="ai" style="width:65%">AI boilerplate</div><div class="me">you</div></div></div>
+    <div class="sp"><div class="name">Metric code (Recall@K, NDCG, F1)<small>You hand-check one example</small></div><div class="sbar"><div class="ai" style="width:50%">AI drafts</div><div class="me">you verify</div></div></div>
+    <div class="sp"><div class="name">Experiment design<small>Configs, baseline, shortlist rule</small></div><div class="sbar"><div class="ai" style="width:20%">ideas</div><div class="me">you decide</div></div></div>
+    <div class="sp"><div class="name">Write-up and post<small>Structure and editing only</small></div><div class="sbar"><div class="ai" style="width:20%">edits</div><div class="me">your words</div></div></div>
+    <div class="sp"><div class="name">Delta schema design<small>Your strength and your interview story</small></div><div class="sbar"><div class="ai" style="width:0;padding:0"></div><div class="me">100% you</div></div></div>
+    <div class="sp"><div class="name">Reading results, drawing conclusions</div><div class="sbar"><div class="ai" style="width:0;padding:0"></div><div class="me">100% you</div></div></div>
+  </div>
+  <h3>Four moments you must be present for</h3>
+  <div class="musts">
+    <div class="panel"><b>Before any code</b>You design the Delta schema on paper.</div>
+    <div class="panel"><b>Stage 1 results land</b>You pick the shortlist and write down why.</div>
+    <div class="panel"><b>Judge disagrees</b>You read 20 of those cases yourself.</div>
+    <div class="panel"><b>The last paragraph</b>What you learned, what you'd change.</div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><span class="eyebrow">The schedule</span><h2>Tonight plus three days</h2></div>
+  <div class="days">
+    <div class="panel dayc"><span class="when">TONIGHT</span><ul><li>Lesson 1: tracing</li><li>Smoke test: dataset, model list, Jev call</li><li>Study one HotpotQA record</li><li>Connect a Git folder</li></ul><div class="out">Out: <b>nothing blocked</b></div></div>
+    <div class="panel dayc"><span class="when">DAY 1 · DATA</span><ul><li>Schema on paper</li><li>Bronze → silver load</li><li>Chunking + embeddings</li><li>Run the retrieval grid</li></ul><div class="out">Out: <b>retrieval metrics table</b></div></div>
+    <div class="panel dayc"><span class="when">DAY 2 · GENERATE</span><ul><li>Lesson 2: evaluate + scorers</li><li>Pick the shortlist</li><li>Traced RAG chain</li><li>Ground-truth scoring</li></ul><div class="out">Out: <b>traced runs, EM/F1</b></div></div>
+    <div class="panel dayc"><span class="when">DAY 3 · JUDGE + SHIP</span><ul><li>LLM judge + Jev</li><li>Agreement analysis</li><li>Write-up, repo README</li><li>LinkedIn post</li></ul><div class="out">Out: <b>published</b></div></div>
+  </div>
+  <p class="note">Behind at the end of Day 2? Drop Jev before you drop the write-up. A published project with one judge beats an unfinished one with two.</p>
+</section>
+
+<section>
+  <div class="head"><span class="eyebrow">The method</span><h2>How to approach any problem like this</h2>
+  <p class="lede">The project is one instance of a method you can reuse for every AI system you touch.</p></div>
+  <div class="method">
+    <div class="panel"><h3>Define "good" before building</h3><p>Pick the metric and the ground truth first. Without them, every improvement is an opinion.</p><span class="here">Here: Recall@K, F1, judge agreement</span></div>
+    <div class="panel"><h3>Run the cheap test first</h3><p>Find the part you can measure for free and use it to shrink the expensive part.</p><span class="here">Here: retrieval grid before any LLM call</span></div>
+    <div class="panel"><h3>Change one thing at a time</h3><p>If two things change at once, you learn nothing about either.</p><span class="here">Here: one config variable per comparison</span></div>
+    <div class="panel"><h3>Test your measuring tool</h3><p>A judge is a model too. Check it against known answers before trusting it.</p><span class="here">Here: LLM judge and Jev vs ground truth</span></div>
+    <div class="panel"><h3>Store everything as data</h3><p>Results in tables can be queried, compared and audited later.</p><span class="here">Here: every run is a Delta row</span></div>
+    <div class="panel"><h3>Finish and show it</h3><p>Unpublished work has no career value. Shipping is part of the job.</p><span class="here">Here: repo + write-up + post</span></div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><span class="eyebrow">Career value</span><h2>What it does for you, honestly</h2></div>
+  <div class="career">
+    <div class="panel yes"><h3>Where it helps</h3><ul>
+      <li><b>Proof for your positioning.</b> "AI Data Platform, Databricks-native" stops being a claim.</li>
+      <li><b>A concrete interview story.</b> Numbers, trade-offs and a validated judge. Few candidates have one.</li>
+      <li><b>Good timing.</b> Evaluation cost is a live topic and Jev is a month old.</li>
+      <li><b>Reusable.</b> This framework later measures your learning-coach flagship.</li></ul></div>
+    <div class="panel no"><h3>Where it doesn't</h3><ul>
+      <li><b>It won't fix screening alone.</b> The published write-up does more than a resume line.</li>
+      <li><b>It doesn't train DE fundamentals.</b> Spark internals and Delta concurrency still need their own time.</li>
+      <li><b>It is a benchmark study.</b> Present it as public data, never as production work.</li></ul></div>
+  </div>
+  <h3>What to carry into the next ten years</h3>
+  <div class="lessons">
+    <div class="lesson"><b>Evaluation is the scarce skill</b><p>Building a RAG app takes an afternoon now. Knowing whether it works, and proving it, is what teams pay for.</p></div>
+    <div class="lesson"><b>Data engineering is the backbone of AI quality</b><p>Eval sets, lineage and metrics tables are data problems. That is your home ground.</p></div>
+    <div class="lesson"><b>Think in cost and latency, not just accuracy</b><p>A judge that is 2% better at 400× the price is usually the wrong choice. Say that with numbers.</p></div>
+    <div class="lesson"><b>Judgment beats typing</b><p>AI writes code faster than you. Your value is deciding what to build, what to measure and what the results mean.</p></div>
+  </div>
+</section>
+
+<footer>RAG Eval Lab · 3-day build plan · October 2026 · Figures in the hero are placeholders until Day 1.</footer>
+</div>
+
+<script>
+(function(){
+  var boxes=[].slice.call(document.querySelectorAll('#checks input'));
+  var KEY='rag-eval-lab-checks';
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(boxes.map(function(b){return b.checked})))}catch(e){}}
+  function render(){var n=boxes.filter(function(b){return b.checked}).length;
+    document.getElementById('pct').textContent=n+' / '+boxes.length;
+    document.getElementById('bar').style.width=(n/boxes.length*100)+'%';}
+  try{var s=JSON.parse(localStorage.getItem(KEY)||'[]');boxes.forEach(function(b,i){b.checked=!!s[i]})}catch(e){}
+  boxes.forEach(function(b){b.addEventListener('change',function(){save();render()})});
+  render();
+})();
+</script>
+
+</body></html>
